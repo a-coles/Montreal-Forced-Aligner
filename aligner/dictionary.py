@@ -5,7 +5,7 @@ import re
 from collections import defaultdict, Counter
 
 from .helper import thirdparty_binary
-from .exceptions import DictionaryPathError, DictionaryFileError, DictionaryError
+from .exceptions import DictionaryPathError, DictionaryFileError
 
 
 def compile_graphemes(graphemes):
@@ -113,14 +113,12 @@ class Dictionary(object):
         self.words[self.oov_code].append((('spn',), 1))
         self.pronunciation_probabilities = True
         with open(input_path, 'r', encoding='utf8') as inf:
-            for i, line in enumerate(inf):
+            for line in inf:
                 line = line.strip()
                 if not line:
                     continue
                 line = line.split()
                 word = line.pop(0).lower()
-                if not line:
-                    raise DictionaryError('Line {} of {} does not have a pronunciation.'.format(i, input_path))
                 if word in ['!sil', oov_code]:
                     continue
                 if word_set is not None and sanitize(word) not in word_set:

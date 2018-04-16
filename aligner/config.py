@@ -59,6 +59,7 @@ class MonophoneConfig(object):
                            '--self-loop-scale=0.1']
         self.beam = 10
         self.retry_beam = 40
+        #self.retry_beam = 50
         self.max_gauss_count = 1000
         self.boost_silence = 1.0
         if kwargs.get('align_often', False):
@@ -70,6 +71,7 @@ class MonophoneConfig(object):
         self.power = 0.25
 
         self.do_fmllr = False
+        self.do_lda_mllt = False
 
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -135,7 +137,8 @@ class TriphoneConfig(MonophoneConfig):
         defaults = {'num_iters': 35,
                     'initial_gauss_count': 3100,
                     'max_gauss_count': 50000,
-                    'cluster_threshold': 100}
+                    'cluster_threshold': 100,
+                    'do_lda_mllt': False}
         defaults.update(kwargs)
         super(TriphoneConfig, self).__init__(**defaults)
 
@@ -202,6 +205,7 @@ class TriphoneFmllrConfig(TriphoneConfig):
 
     def __init__(self, align_often=True, **kwargs):
         defaults = {'do_fmllr': True,
+                    'do_lda_mllt': False,
                     'fmllr_update_type': 'full',
                     'fmllr_iters': [2, 4, 6, 12],
                     'fmllr_power': 0.2,
@@ -209,6 +213,144 @@ class TriphoneFmllrConfig(TriphoneConfig):
         defaults.update(kwargs)
         super(TriphoneFmllrConfig, self).__init__(**defaults)
 
+# For nnets
+class LdaMlltConfig(object):
+    '''
+    fill in docstring
+    '''
+    def __init__(self, **kwargs):
+        self.num_iters = 13
+        self.do_fmllr = False
+        self.do_lda_mllt = True
+
+        self.scale_opts = ['--transition-scale=1.0',
+                           '--acoustic-scale=0.1',
+                           '--self-loop-scale=0.1']
+        self.num_gauss = 5000
+        self.beam = 10
+        self.retry_beam = 40
+        #self.retry_beam = 100    # For testing
+        self.initial_gauss_count = 5000
+        self.cluster_threshold = -1
+        self.max_gauss_count = 10000
+        self.boost_silence = 1.0
+        #if kwargs.get('align_often', False):
+        #    self.realign_iters = [10, 20, 30]
+        #else:
+        #    self.realign_iters = [1, 5, 10, 15, 20, 25, 30, 35, 38]
+        self.realign_iters = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+        self.stage = -5
+        self.power = 0.25
+
+        self.dim = 40
+        #self.dim = 91
+        self.careful = False
+        self.randprune = 4.0
+        self.splice_opts = ['--left-context=3', '--right-context=3']
+        self.cluster_thresh = -1
+        self.norm_vars = False
+
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    @property
+    def max_iter_inc(self):
+        return self.num_iters
+
+    @property
+    def inc_gauss_count(self):
+        return int((self.max_gauss_count - self.initial_gauss_count) / self.max_iter_inc)
+
+class DiagUbmConfig(object):
+    '''
+    fill in docstring
+    '''
+    def __init__(self, **kwargs):
+        self.num_iters = 4
+        self.num_gselect = 30
+        self.num_frames = 400000
+        self.num_gauss = 256
+        self.num_gselect = 30
+
+        self.num_iters_init = 20
+        self.initial_gauss_proportion = 0.5
+        self.subsample = 2
+        self.cleanup = True
+        self.min_gaussian_weight = 0.0001
+
+        self.remove_low_count_gaussians = True
+        self.num_threads = 32
+        self.splice_opts = ['--left-context=3', '--right-context=3']
+
+class iVectorExtractorConfig(object):
+    '''
+    fill in docstring'''
+    def __init__(self, **kwargs):
+        self.ivector_dim = 100
+        self.ivector_period = 10
+        self.num_iters = 10
+        self.num_gselect = 5
+        self.posterior_scale = 0.1
+
+        self.min_post = 0.025
+        self.subsample = 2
+        self.max_count = 0
+
+        self.num_threads = 4
+        self.num_processes = 4
+
+        self.splice_opts = ['--left-context=3', '--right-context=3']
+        self.compress = False
+
+class NnetBasicConfig(object):
+    def __init__(self, **kwargs):
+        self.num_epochs = 15
+        self.num_epochs_extra = 5
+        self.num_iters_final = 20
+        self.iters_per_epoch = 2
+        self.realign_times = 0
+
+        self.beam = 10
+        self.retry_beam = 15000000
+
+        self.initial_learning_rate=0.32
+        self.final_learning_rate=0.032
+        self.bias_stddev = 0.5
+
+        self.pnorm_input_dim = 3000
+        self.pnorm_output_dim = 300
+        self.p = 2
+
+        self.shrink_interval = 5
+        self.shrink = True
+        self.num_frames_shrink = 2000
+
+        self.final_learning_rate_factor = 0.5
+        self.hidden_layer_dim = 50
+
+        self.samples_per_iter = 200000
+        self.shuffle_buffer_size = 5000
+        self.add_layers_period = 2
+        self.num_hidden_layers = 3
+        self.modify_learning_rates = False
+
+        self.last_layer_factor = 0.1
+        self.first_layer_factor = 1.0
+
+        self.splice_width = 3
+        #self.randprune = 0.4
+        self.randprune = 4.0
+        self.alpha = 4.0
+        self.max_change = 10.0
+        self.mix_up = 12000 # From run_nnet2.sh
+        self.prior_subset_size = 10000
+        self.boost_silence = 0.5
+
+        self.update_period = 4
+        self.num_samples_history = 2000
+        self.max_change_per_sample = 0.075
+        self.precondition_rank_in = 20
+        self.precondition_rank_out = 80
 
 class MfccConfig(object):
     '''
